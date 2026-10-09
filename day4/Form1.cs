@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using day4.Models;
 using day4.Services;
@@ -11,8 +11,8 @@ namespace day4
 {
     public partial class Form1 : Form
     {
-        private readonly StudentManager _manager = new StudentManager();
-        private bool _isBinding = false;
+        private readonly QuanLySinhVien _quanLy = new QuanLySinhVien();
+        private bool _isUpdatingFromCode = false;
 
         public Form1()
         {
@@ -21,71 +21,161 @@ namespace day4
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            // Cài đặt danh sách trạng thái
+            // 1. Cài đặt danh sách trạng thái
             cboTrangThai.Items.Clear();
             cboTrangThai.Items.AddRange(new object[] { "Đang học", "Bảo lưu", "Đã tốt nghiệp" });
             cboTrangThai.SelectedIndex = 0;
 
-            // Nạp danh sách lớp vào ComboBox nhập liệu và ComboBox tìm kiếm
-            LoadClassComboBoxes();
+            // 2. Lấy về danh sách lớp học hiển thị combobox
+            NapDanhSachLopHoc();
 
-            // Nạp dữ liệu lên DataGridView
-            LoadStudentGrid(_manager.GetAllStudents());
+            // 3. Lấy về danh sách sinh viên hiển thị DataGridView
+            HienThiDanhSachSinhVien(_quanLy.LayTatCaSinhVien());
 
-            // Chọn sinh viên đầu tiên để hiển thị lên form như ảnh mẫu
-            if (dgvSinhVien.Rows.Count > 0)
-            {
-                dgvSinhVien.Rows[0].Selected = true;
-                DisplayStudentInfo(dgvSinhVien.Rows[0].DataBoundItem as Student);
-            }
+            // 4. Thiết lập cho các button có giá trị enable phù hợp
+            ThietLapTrangThaiButton(choPhepNhap: true, choPhepSua: false, choPhepXoa: false);
+
+            // 5. Con trỏ thiết lập mặc định ở txtMaSV
+            this.ActiveControl = txtMaSV;
+            txtMaSV.Focus();
         }
 
-        private void LoadClassComboBoxes()
+        /// <summary>
+        /// Nạp danh sách lớp học hiển thị lên ComboBox lớp học và ComboBox lọc lớp
+        /// </summary>
+        private void NapDanhSachLopHoc()
         {
-            var classNames = _manager.Classes.Select(c => c.ClassName).ToList();
+            var tenCacLop = _quanLy.DanhSachLop.Select(l => l.TenLop).ToList();
 
-            // ComboBox chọn lớp khi thêm/sửa
+            // Combobox lớp học nhập liệu
             cboLop.Items.Clear();
-            foreach (var name in classNames)
+            foreach (var ten in tenCacLop)
             {
-                cboLop.Items.Add(name);
+                cboLop.Items.Add(ten);
             }
             if (cboLop.Items.Count > 0)
             {
                 cboLop.SelectedIndex = 0;
             }
 
-            // ComboBox lọc lớp khi tìm kiếm
+            // Combobox lọc lớp khi tìm kiếm
             cboLocLop.Items.Clear();
             cboLocLop.Items.Add("Tất cả lớp");
-            foreach (var name in classNames)
+            foreach (var ten in tenCacLop)
             {
-                cboLocLop.Items.Add(name);
+                cboLocLop.Items.Add(ten);
             }
             cboLocLop.SelectedIndex = 0;
         }
 
-        private void LoadStudentGrid(List<Student> students)
+        /// <summary>
+        /// Hiển thị danh sách sinh viên lên DataGridView và cập nhật tổng số
+        /// </summary>
+        private void HienThiDanhSachSinhVien(List<SinhVien> danhSach)
         {
-            _isBinding = true;
+            _isUpdatingFromCode = true;
             dgvSinhVien.DataSource = null;
             dgvSinhVien.AutoGenerateColumns = false;
-            dgvSinhVien.DataSource = students;
-            _isBinding = false;
+            dgvSinhVien.DataSource = danhSach.ToList();
+            _isUpdatingFromCode = false;
 
-            lblTongSo.Text = $"Tổng số: {students.Count} sinh viên";
+            lblTongSo.Text = $"Tổng số: {danhSach.Count} sinh viên";
         }
 
-        private void DisplayStudentInfo(Student? student)
+        /// <summary>
+        /// Thiết lập trạng thái Enable/Disable cho các Button
+        /// </summary>
+        private void ThietLapTrangThaiButton(bool choPhepNhap, bool choPhepSua, bool choPhepXoa)
         {
-            if (student == null) return;
+            btnThem.Enabled = choPhepNhap;
+            btnSua.Enabled = choPhepSua;
+            btnXoa.Enabled = choPhepXoa;
+            btnLamMoi.Enabled = true;
+        }
 
-            txtMaSV.Text = student.StudentId;
-            txtMaSV.ReadOnly = true; // Khóa mã SV khi xem/sửa dòng có sẵn
-            txtHoTen.Text = student.FullName;
-            dtpNgaySinh.Value = student.DateOfBirth;
+        /// <summary>
+        /// Khi người dùng nhập mã sinh viên:
+        /// - nếu mã sinh viên tồn tại: lấy thông tin của sinh viên hiển thị tương ứng lên các điều khiển còn lại, disable chức năng nhập, enable chức năng sửa, xóa
+        /// - chưa tồn tại: xóa giá trị các điều khiển textbox, enable chức năng nhập, disable chức năng sửa, xóa
+        /// </summary>
+        private void txtMaSV_TextChanged(object sender, EventArgs e)
+        {
+            if (_isUpdatingFromCode) return;
 
-            if (student.Gender.Equals("Nữ", StringComparison.OrdinalIgnoreCase))
+            string maSV = txtMaSV.Text.Trim();
+            if (string.IsNullOrEmpty(maSV))
+            {
+                XoaGiaTriCacTextBoxKhac();
+                ThietLapTrangThaiButton(choPhepNhap: true, choPhepSua: false, choPhepXoa: false);
+                dgvSinhVien.ClearSelection();
+                return;
+            }
+
+            var sv = _quanLy.TimSinhVienTheoMa(maSV);
+            if (sv != null)
+            {
+                // Mã sinh viên tồn tại:
+                // Lấy thông tin sinh viên hiển thị tương ứng lên các điều khiển còn lại
+                HienThiThongTinSinhVien(sv, capNhatMaSV: false);
+
+                // Disable chức năng nhập, enable chức năng sửa, xóa
+                ThietLapTrangThaiButton(choPhepNhap: false, choPhepSua: true, choPhepXoa: true);
+
+                // Chọn dòng tương ứng trên DataGridView
+                DongBoChonDongTrenGrid(sv.MaSV);
+            }
+            else
+            {
+                // Chưa tồn tại:
+                // Xóa giá trị các điều khiển textbox
+                XoaGiaTriCacTextBoxKhac();
+
+                // Enable chức năng nhập, disable chức năng sửa, xóa
+                ThietLapTrangThaiButton(choPhepNhap: true, choPhepSua: false, choPhepXoa: false);
+
+                dgvSinhVien.ClearSelection();
+            }
+        }
+
+        private void txtMaSV_Leave(object sender, EventArgs e)
+        {
+            // Kiểm tra lại khi người dùng rời khỏi ô mã sinh viên
+            txtMaSV_TextChanged(sender, e);
+        }
+
+        /// <summary>
+        /// Xóa giá trị các TextBox (Họ tên, Email, Điện thoại) mà giữ nguyên mã sinh viên đang gõ
+        /// </summary>
+        private void XoaGiaTriCacTextBoxKhac()
+        {
+            _isUpdatingFromCode = true;
+            txtHoTen.Clear();
+            txtEmail.Clear();
+            txtDienThoai.Clear();
+            dtpNgaySinh.Value = new DateTime(2006, 1, 1);
+            rdoNam.Checked = true;
+            numDiem.Value = 0.0m;
+            if (cboLop.Items.Count > 0) cboLop.SelectedIndex = 0;
+            if (cboTrangThai.Items.Count > 0) cboTrangThai.SelectedIndex = 0;
+            _isUpdatingFromCode = false;
+        }
+
+        /// <summary>
+        /// Hiển thị thông tin sinh viên lên các điều khiển
+        /// </summary>
+        private void HienThiThongTinSinhVien(SinhVien sv, bool capNhatMaSV = true)
+        {
+            _isUpdatingFromCode = true;
+
+            if (capNhatMaSV)
+            {
+                txtMaSV.Text = sv.MaSV;
+            }
+
+            txtHoTen.Text = sv.HoTen;
+            dtpNgaySinh.Value = sv.NgaySinh;
+
+            if (sv.GioiTinh.Equals("Nữ", StringComparison.OrdinalIgnoreCase))
             {
                 rdoNu.Checked = true;
             }
@@ -94,203 +184,259 @@ namespace day4
                 rdoNam.Checked = true;
             }
 
-            txtEmail.Text = student.Email;
-            txtDienThoai.Text = student.Phone;
-            numDiem.Value = (decimal)Math.Clamp(student.Score, 0.0, 10.0);
+            txtEmail.Text = sv.Email;
+            txtDienThoai.Text = sv.DienThoai;
+            numDiem.Value = (decimal)Math.Clamp(sv.Diem, 0.0, 10.0);
 
-            // Chọn lớp
-            int classIdx = cboLop.FindStringExact(student.ClassName);
+            int classIdx = cboLop.FindStringExact(sv.TenLop);
             if (classIdx >= 0)
             {
                 cboLop.SelectedIndex = classIdx;
             }
 
-            // Chọn trạng thái
-            int statusIdx = cboTrangThai.FindStringExact(student.Status);
+            int statusIdx = cboTrangThai.FindStringExact(sv.TrangThai);
             if (statusIdx >= 0)
             {
                 cboTrangThai.SelectedIndex = statusIdx;
             }
-            else
-            {
-                cboTrangThai.SelectedIndex = 0;
-            }
+
+            _isUpdatingFromCode = false;
         }
 
+        /// <summary>
+        /// Chọn dòng trong DataGridView
+        /// </summary>
+        private void DongBoChonDongTrenGrid(string maSV)
+        {
+            _isUpdatingFromCode = true;
+            foreach (DataGridViewRow row in dgvSinhVien.Rows)
+            {
+                if (row.DataBoundItem is SinhVien s && s.MaSV.Equals(maSV, StringComparison.OrdinalIgnoreCase))
+                {
+                    row.Selected = true;
+                    dgvSinhVien.CurrentCell = row.Cells[0];
+                    break;
+                }
+            }
+            _isUpdatingFromCode = false;
+        }
+
+        /// <summary>
+        /// Khi click một dòng trên DataGridView -> nạp mã SV vào txtMaSV
+        /// </summary>
         private void dgvSinhVien_CellClick(object sender, DataGridViewCellEventArgs e)
         {
-            if (_isBinding || e.RowIndex < 0 || e.RowIndex >= dgvSinhVien.Rows.Count) return;
+            if (_isUpdatingFromCode || e.RowIndex < 0 || e.RowIndex >= dgvSinhVien.Rows.Count) return;
 
-            var student = dgvSinhVien.Rows[e.RowIndex].DataBoundItem as Student;
-            DisplayStudentInfo(student);
+            var sv = dgvSinhVien.Rows[e.RowIndex].DataBoundItem as SinhVien;
+            if (sv != null)
+            {
+                txtMaSV.Text = sv.MaSV;
+                txtMaSV.Focus();
+                txtMaSV.SelectAll();
+            }
         }
 
-        private bool ValidateInputs(bool isAdding)
-        {
-            string maSV = txtMaSV.Text.Trim();
-            string hoTen = txtHoTen.Text.Trim();
-            string email = txtEmail.Text.Trim();
-            string dienThoai = txtDienThoai.Text.Trim();
-
-            if (string.IsNullOrWhiteSpace(maSV))
-            {
-                MessageBox.Show("Vui lòng nhập Mã sinh viên!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                txtMaSV.Focus();
-                return false;
-            }
-
-            if (isAdding && _manager.Exists(maSV))
-            {
-                MessageBox.Show($"Mã sinh viên '{maSV}' đã tồn tại! Vui lòng chọn mã khác.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                txtMaSV.Focus();
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(hoTen))
-            {
-                MessageBox.Show("Vui lòng nhập Họ và tên!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                txtHoTen.Focus();
-                return false;
-            }
-
-            if (cboLop.SelectedItem == null)
-            {
-                MessageBox.Show("Vui lòng chọn Lớp học!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                cboLop.Focus();
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(email))
-            {
-                MessageBox.Show("Vui lòng nhập Email!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                txtEmail.Focus();
-                return false;
-            }
-
-            if (!Regex.IsMatch(email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
-            {
-                MessageBox.Show("Định dạng Email không hợp lệ (ví dụ: an.nv@vju.ac.vn)!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                txtEmail.Focus();
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(dienThoai))
-            {
-                MessageBox.Show("Vui lòng nhập Số điện thoại!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                txtDienThoai.Focus();
-                return false;
-            }
-
-            return true;
-        }
-
+        /// <summary>
+        /// Chức năng THÊM (Nhập):
+        /// - Dùng Data Annotation để kiểm tra tính hợp lệ của thuộc tính đối tượng SinhVien
+        /// </summary>
         private void btnThem_Click(object sender, EventArgs e)
         {
-            if (!ValidateInputs(isAdding: true)) return;
+            string maSV = txtMaSV.Text.Trim();
 
-            var student = new Student
+            // 1. Kiểm tra trùng mã sinh viên
+            if (_quanLy.KiemTraTonTai(maSV))
             {
-                StudentId = txtMaSV.Text.Trim(),
-                FullName = txtHoTen.Text.Trim(),
-                DateOfBirth = dtpNgaySinh.Value,
-                Gender = rdoNu.Checked ? "Nữ" : "Nam",
+                MessageBox.Show($"Mã sinh viên '{maSV}' đã tồn tại trong danh sách! Không thể thêm mới.",
+                                "Trùng mã sinh viên",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Error);
+                txtMaSV.Focus();
+                return;
+            }
+
+            // 2. Khởi tạo đối tượng SinhVien từ giao diện
+            var sv = new SinhVien
+            {
+                MaSV = maSV,
+                HoTen = txtHoTen.Text.Trim(),
+                NgaySinh = dtpNgaySinh.Value,
+                GioiTinh = rdoNu.Checked ? "Nữ" : "Nam",
                 Email = txtEmail.Text.Trim(),
-                Phone = txtDienThoai.Text.Trim(),
-                Score = (double)numDiem.Value,
-                ClassName = cboLop.SelectedItem?.ToString() ?? string.Empty,
-                Status = cboTrangThai.SelectedItem?.ToString() ?? "Đang học"
+                DienThoai = txtDienThoai.Text.Trim(),
+                Diem = (double)numDiem.Value,
+                TenLop = cboLop.SelectedItem?.ToString() ?? string.Empty,
+                TrangThai = cboTrangThai.SelectedItem?.ToString() ?? "Đang học"
             };
 
-            bool success = _manager.AddStudent(student);
-            if (success)
+            // Tìm mã lớp tương ứng
+            var lop = _quanLy.DanhSachLop.FirstOrDefault(l => l.TenLop == sv.TenLop);
+            if (lop != null)
             {
-                LoadStudentGrid(_manager.GetAllStudents());
-                SelectStudentInGrid(student.StudentId);
-                MessageBox.Show($"Thêm sinh viên '{student.FullName}' thành công!", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                sv.MaLop = lop.MaLop;
+            }
+
+            // 3. Sử dụng Data Annotation để kiểm tra validate các thuộc tính
+            if (!sv.KiemTraHopLe(out string thongBaoLoi))
+            {
+                MessageBox.Show("Dữ liệu nhập không hợp lệ theo quy tắc Data Annotation:\n\n" + thongBaoLoi,
+                                "Kiểm tra dữ liệu (Data Annotation)",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Warning);
+                return;
+            }
+
+            // 4. Thêm sinh viên vào hệ thống
+            if (_quanLy.ThemSinhVien(sv))
+            {
+                HienThiDanhSachSinhVien(_quanLy.LayTatCaSinhVien());
+                DongBoChonDongTrenGrid(sv.MaSV);
+                ThietLapTrangThaiButton(choPhepNhap: false, choPhepSua: true, choPhepXoa: true);
+
+                MessageBox.Show($"Thêm thành công sinh viên '{sv.HoTen}' (Mã: {sv.MaSV})!",
+                                "Thành công",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Information);
             }
             else
             {
-                MessageBox.Show("Không thể thêm sinh viên!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Có lỗi xảy ra khi thêm sinh viên!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
+        /// <summary>
+        /// Chức năng SỬA:
+        /// - Chức năng quan trọng -> xác thực trước khi thực hiện
+        /// - Dùng Data Annotation để kiểm tra tính hợp lệ
+        /// </summary>
         private void btnSua_Click(object sender, EventArgs e)
         {
             string maSV = txtMaSV.Text.Trim();
-            if (string.IsNullOrWhiteSpace(maSV) || !_manager.Exists(maSV))
+            if (string.IsNullOrEmpty(maSV) || !_quanLy.KiemTraTonTai(maSV))
             {
-                MessageBox.Show("Vui lòng chọn một sinh viên từ danh sách để sửa!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Vui lòng chọn hoặc nhập mã sinh viên đã tồn tại để sửa!",
+                                "Thông báo",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Warning);
+                txtMaSV.Focus();
                 return;
             }
 
-            if (!ValidateInputs(isAdding: false)) return;
-
-            var updatedStudent = new Student
-            {
-                StudentId = maSV,
-                FullName = txtHoTen.Text.Trim(),
-                DateOfBirth = dtpNgaySinh.Value,
-                Gender = rdoNu.Checked ? "Nữ" : "Nam",
-                Email = txtEmail.Text.Trim(),
-                Phone = txtDienThoai.Text.Trim(),
-                Score = (double)numDiem.Value,
-                ClassName = cboLop.SelectedItem?.ToString() ?? string.Empty,
-                Status = cboTrangThai.SelectedItem?.ToString() ?? "Đang học"
-            };
-
-            bool success = _manager.UpdateStudent(updatedStudent);
-            if (success)
-            {
-                LoadStudentGrid(_manager.GetAllStudents());
-                SelectStudentInGrid(updatedStudent.StudentId);
-                MessageBox.Show($"Cập nhật sinh viên '{updatedStudent.FullName}' thành công!", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            else
-            {
-                MessageBox.Show("Không thể cập nhật sinh viên!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
-        private void btnXoa_Click(object sender, EventArgs e)
-        {
-            string maSV = txtMaSV.Text.Trim();
-            if (string.IsNullOrWhiteSpace(maSV) || !_manager.Exists(maSV))
-            {
-                MessageBox.Show("Vui lòng chọn sinh viên cần xóa từ danh sách!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            var confirm = MessageBox.Show(
-                $"Bạn có chắc chắn muốn xóa sinh viên '{txtHoTen.Text.Trim()}' (Mã: {maSV})?",
-                "Xác nhận xóa",
+            // Xác thực trước khi thực hiện (chức năng thay đổi dữ liệu)
+            DialogResult xacNhan = MessageBox.Show(
+                $"Bạn có chắc chắn muốn cập nhật thông tin sinh viên có mã '{maSV}' không?",
+                "Xác nhận cập nhật",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Question);
 
-            if (confirm == DialogResult.Yes)
+            if (xacNhan != DialogResult.Yes) return;
+
+            // Khởi tạo đối tượng SinhVien với dữ liệu mới
+            var svMoi = new SinhVien
             {
-                bool success = _manager.DeleteStudent(maSV);
-                if (success)
-                {
-                    LoadStudentGrid(_manager.GetAllStudents());
-                    btnLamMoi_Click(sender, e);
-                    MessageBox.Show("Đã xóa sinh viên thành công!", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
-                else
-                {
-                    MessageBox.Show("Xóa sinh viên không thành công!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
+                MaSV = maSV,
+                HoTen = txtHoTen.Text.Trim(),
+                NgaySinh = dtpNgaySinh.Value,
+                GioiTinh = rdoNu.Checked ? "Nữ" : "Nam",
+                Email = txtEmail.Text.Trim(),
+                DienThoai = txtDienThoai.Text.Trim(),
+                Diem = (double)numDiem.Value,
+                TenLop = cboLop.SelectedItem?.ToString() ?? string.Empty,
+                TrangThai = cboTrangThai.SelectedItem?.ToString() ?? "Đang học"
+            };
+
+            var lop = _quanLy.DanhSachLop.FirstOrDefault(l => l.TenLop == svMoi.TenLop);
+            if (lop != null)
+            {
+                svMoi.MaLop = lop.MaLop;
+            }
+
+            // Dùng Data Annotation kiểm tra dữ liệu
+            if (!svMoi.KiemTraHopLe(out string thongBaoLoi))
+            {
+                MessageBox.Show("Dữ liệu sửa không hợp lệ theo quy tắc Data Annotation:\n\n" + thongBaoLoi,
+                                "Kiểm tra dữ liệu (Data Annotation)",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Warning);
+                return;
+            }
+
+            // Thực hiện sửa
+            if (_quanLy.SuaSinhVien(svMoi))
+            {
+                HienThiDanhSachSinhVien(_quanLy.LayTatCaSinhVien());
+                DongBoChonDongTrenGrid(svMoi.MaSV);
+                MessageBox.Show($"Cập nhật thành công thông tin sinh viên '{svMoi.HoTen}'!",
+                                "Thành công",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Information);
+            }
+            else
+            {
+                MessageBox.Show("Cập nhật thông tin sinh viên không thành công!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
+        /// <summary>
+        /// Chức năng XÓA:
+        /// - Chức năng NGUY HIỂM: Yêu cầu xác thực trước khi thực hiện
+        /// </summary>
+        private void btnXoa_Click(object sender, EventArgs e)
+        {
+            string maSV = txtMaSV.Text.Trim();
+            if (string.IsNullOrEmpty(maSV) || !_quanLy.KiemTraTonTai(maSV))
+            {
+                MessageBox.Show("Vui lòng chọn hoặc nhập mã sinh viên hợp lệ để xóa!",
+                                "Thông báo",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Warning);
+                txtMaSV.Focus();
+                return;
+            }
+
+            // Xác thực thao tác nguy hiểm
+            DialogResult xacNhan = MessageBox.Show(
+                $"CẢNH BÁO NGUY HIỂM: Bạn có chắc chắn muốn xóa sinh viên '{txtHoTen.Text.Trim()}' (Mã: {maSV}) khỏi hệ thống không?\n\nThao tác này sẽ xóa vĩnh viễn dữ liệu và không thể hoàn tác!",
+                "Xác thực thao tác nguy hiểm (Xác nhận xóa)",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning,
+                MessageBoxDefaultButton.Button2);
+
+            if (xacNhan != DialogResult.Yes) return;
+
+            // Thực hiện xóa
+            if (_quanLy.XoaSinhVien(maSV))
+            {
+                HienThiDanhSachSinhVien(_quanLy.LayTatCaSinhVien());
+                btnLamMoi_Click(sender, e);
+                MessageBox.Show($"Đã xóa sinh viên có mã '{maSV}' thành công!",
+                                "Thông báo",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Information);
+            }
+            else
+            {
+                MessageBox.Show("Không thể xóa sinh viên!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        /// <summary>
+        /// Khi người dùng nhấn Button Làm mới:
+        /// - Xóa trống các thuộc tính trên form
+        /// - Enable button Nhập, Disable button sửa xóa
+        /// - Chuyển tiêu điểm về điều khiển txtMaSV
+        /// </summary>
         private void btnLamMoi_Click(object sender, EventArgs e)
         {
+            _isUpdatingFromCode = true;
+
             txtMaSV.Clear();
-            txtMaSV.ReadOnly = false;
             txtHoTen.Clear();
-            dtpNgaySinh.Value = new DateTime(2006, 1, 1);
-            rdoNam.Checked = true;
             txtEmail.Clear();
             txtDienThoai.Clear();
+            dtpNgaySinh.Value = new DateTime(2006, 1, 1);
+            rdoNam.Checked = true;
             numDiem.Value = 0.0m;
 
             if (cboLop.Items.Count > 0)
@@ -304,61 +450,128 @@ namespace day4
             }
 
             dgvSinhVien.ClearSelection();
+
+            _isUpdatingFromCode = false;
+
+            // Enable button Nhập, Disable button sửa xóa
+            ThietLapTrangThaiButton(choPhepNhap: true, choPhepSua: false, choPhepXoa: false);
+
+            // Chuyển tiêu điểm về điều khiển txtMaSV
+            this.ActiveControl = txtMaSV;
             txtMaSV.Focus();
         }
 
+        /// <summary>
+        /// Tìm kiếm sinh viên theo từ khóa, lớp, điểm sàn
+        /// </summary>
         private void btnTimKiem_Click(object sender, EventArgs e)
         {
-            string keyword = txtTimKiem.Text.Trim();
-            string? selectedClass = cboLocLop.SelectedItem?.ToString();
-            double minScore = (double)numDiemTu.Value;
+            string tuKhoa = txtTimKiem.Text.Trim();
+            string? lopChon = cboLocLop.SelectedItem?.ToString();
+            double diemTu = (double)numDiemTu.Value;
 
-            var results = _manager.Search(keyword, selectedClass, minScore);
-            LoadStudentGrid(results);
+            var ketQua = _quanLy.TimKiem(tuKhoa, lopChon, diemTu);
+            HienThiDanhSachSinhVien(ketQua);
 
-            if (results.Count == 0)
+            if (ketQua.Count == 0)
             {
-                MessageBox.Show("Không tìm thấy sinh viên nào phù hợp với điều kiện tìm kiếm!", "Kết quả tìm kiếm", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("Không tìm thấy sinh viên nào phù hợp với điều kiện tìm kiếm!",
+                                "Kết quả tìm kiếm",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Information);
             }
             else
             {
-                dgvSinhVien.Rows[0].Selected = true;
-                DisplayStudentInfo(dgvSinhVien.Rows[0].DataBoundItem as Student);
+                DongBoChonDongTrenGrid(ketQua[0].MaSV);
+                HienThiThongTinSinhVien(ketQua[0], capNhatMaSV: true);
+                ThietLapTrangThaiButton(choPhepNhap: false, choPhepSua: true, choPhepXoa: true);
             }
         }
 
+        /// <summary>
+        /// Hiển thị tất cả sinh viên và xóa bộ lọc
+        /// </summary>
         private void btnHienThiTatCa_Click(object sender, EventArgs e)
         {
             txtTimKiem.Clear();
             cboLocLop.SelectedIndex = 0;
             numDiemTu.Value = 0.0m;
 
-            LoadStudentGrid(_manager.GetAllStudents());
+            var tatCa = _quanLy.LayTatCaSinhVien();
+            HienThiDanhSachSinhVien(tatCa);
 
-            if (dgvSinhVien.Rows.Count > 0)
-            {
-                dgvSinhVien.Rows[0].Selected = true;
-                DisplayStudentInfo(dgvSinhVien.Rows[0].DataBoundItem as Student);
-            }
+            btnLamMoi_Click(sender, e);
         }
 
-        private void SelectStudentInGrid(string studentId)
+        /// <summary>
+        /// Vẽ badge màu xanh bo tròn cho cột Trạng thái giống 100% trong ảnh
+        /// </summary>
+        private void dgvSinhVien_CellPainting(object sender, DataGridViewCellPaintingEventArgs e)
         {
-            foreach (DataGridViewRow row in dgvSinhVien.Rows)
+            if (e.RowIndex >= 0 && e.ColumnIndex == colTrangThai.Index && e.Value != null)
             {
-                if (row.DataBoundItem is Student s && s.StudentId.Equals(studentId, StringComparison.OrdinalIgnoreCase))
+                e.Paint(e.CellBounds, DataGridViewPaintParts.Background | DataGridViewPaintParts.Border);
+
+                string text = e.Value.ToString() ?? "";
+                if (!string.IsNullOrEmpty(text))
                 {
-                    row.Selected = true;
-                    dgvSinhVien.CurrentCell = row.Cells[0];
-                    DisplayStudentInfo(s);
-                    break;
+                    // Màu badge
+                    Color badgeBg = Color.FromArgb(209, 231, 221); // Xanh nhạt
+                    Color badgeText = Color.FromArgb(15, 81, 50);   // Xanh đậm
+
+                    if (text == "Bảo lưu")
+                    {
+                        badgeBg = Color.FromArgb(255, 243, 205);
+                        badgeText = Color.FromArgb(102, 77, 3);
+                    }
+                    else if (text == "Đã tốt nghiệp")
+                    {
+                        badgeBg = Color.FromArgb(226, 227, 229);
+                        badgeText = Color.FromArgb(65, 70, 75);
+                    }
+
+                    int badgeWidth = 84;
+                    int badgeHeight = 22;
+                    int x = e.CellBounds.X + (e.CellBounds.Width - badgeWidth) / 2;
+                    int y = e.CellBounds.Y + (e.CellBounds.Height - badgeHeight) / 2;
+                    var rect = new Rectangle(x, y, badgeWidth, badgeHeight);
+
+                    if (e.Graphics != null)
+                    {
+                        using (var brush = new SolidBrush(badgeBg))
+                        using (var path = CreateRoundedRectangle(rect, 10))
+                        {
+                            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                            e.Graphics.FillPath(brush, path);
+                        }
+
+                        using (var font = new Font("Segoe UI", 8.5f, FontStyle.Bold))
+                        using (var brush = new SolidBrush(badgeText))
+                        {
+                            var sf = new StringFormat
+                            {
+                                Alignment = StringAlignment.Center,
+                                LineAlignment = StringAlignment.Center
+                            };
+                            e.Graphics.DrawString(text, font, brush, rect, sf);
+                        }
+                    }
                 }
+
+                e.Handled = true;
             }
         }
 
-        private void dgvSinhVien_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        private GraphicsPath CreateRoundedRectangle(Rectangle bounds, int radius)
         {
-
+            var path = new GraphicsPath();
+            int diameter = radius * 2;
+            path.AddArc(bounds.X, bounds.Y, diameter, diameter, 180, 90);
+            path.AddArc(bounds.Right - diameter, bounds.Y, diameter, diameter, 270, 90);
+            path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90);
+            path.AddArc(bounds.X, bounds.Bottom - diameter, diameter, diameter, 90, 90);
+            path.CloseFigure();
+            return path;
         }
     }
 }
