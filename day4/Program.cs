@@ -1,7 +1,8 @@
 using System;
 using System.Windows.Forms;
+using QuanLySinhVien.Views;
 
-namespace day4
+namespace QuanLySinhVien
 {
     internal static class Program
     {
@@ -9,7 +10,7 @@ namespace day4
         static void Main()
         {
             ApplicationConfiguration.Initialize();
-            Application.Run(new Form1());
+            Application.Run(new frmQLSinhVien());
         }
     }
 }

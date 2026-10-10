@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
-namespace day4_quanlysinhvien.Models
+namespace QuanLySinhVien.Data.Entity
 {
     public class LopHoc
     {
@@ -47,7 +47,7 @@ namespace day4_quanlysinhvien.Models
             return false;
         }
 
-        // Phương thức kiểm tra các thuộc tính của đối tượng có hợp lệ hay không dùng Data Annotation
+        // Phương thức kiểm tra các thuộc tính có hợp lệ hay không dùng Data Annotation
         public bool KiemTraHopLe(out List<ValidationResult> ketQua)
         {
             var context = new ValidationContext(this);

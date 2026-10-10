@@ -1,6 +1,6 @@
-namespace day4
+namespace QuanLySinhVien.Views
 {
-    partial class Form1
+    partial class frmQLSinhVien
     {
         private System.ComponentModel.IContainer components = null;
 
@@ -773,7 +773,7 @@ namespace day4
             lblFooterLeft.TabIndex = 0;
             lblFooterLeft.Text = "Bài tập: xây dựng Windows Forms quản lý sinh viên theo lớp";
             // 
-            // Form1
+            // frmQLSinhVien
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
@@ -787,10 +787,10 @@ namespace day4
             Controls.Add(lblMainTitle);
             Controls.Add(pnlHeader);
             MinimumSize = new Size(950, 600);
-            Name = "Form1";
+            Name = "frmQLSinhVien";
             StartPosition = FormStartPosition.CenterScreen;
             Text = "Ứng dụng quản lý sinh viên";
-            Load += Form1_Load;
+            Load += frmQLSinhVien_Load;
             pnlHeader.ResumeLayout(false);
             pnlHeader.PerformLayout();
             pnlStudentInfo.ResumeLayout(false);

@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
-    <RootNamespace>day4</RootNamespace>
+    <RootNamespace>QuanLySinhVien</RootNamespace>
     <AssemblyName>day4</AssemblyName>
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
