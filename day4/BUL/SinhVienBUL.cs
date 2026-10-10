@@ -21,6 +21,11 @@ namespace QuanLySinhVien.BUL
             return _sinhVienDAL.LayTatCa();
         }
 
+        public List<SinhVien> LaySinhVienTheoLop(string maHoacTenLop)
+        {
+            return _sinhVienDAL.LayTheoLop(maHoacTenLop);
+        }
+
         public SinhVien? TimSinhVienTheoMa(string maSV)
         {
             return _sinhVienDAL.LayTheoMa(maSV);
@@ -32,11 +37,40 @@ namespace QuanLySinhVien.BUL
         }
 
         /// <summary>
-        /// Nghiệp vụ Thêm sinh viên:
-        /// - Kiểm tra tính hợp lệ của thuộc tính bằng Data Annotation
-        /// - Kiểm tra nghiệp vụ: trùng mã sinh viên
-        /// - Đồng bộ mã lớp từ tên lớp
+        /// Phương thức thêm sinh viên theo đúng chữ ký svb.AddSinhVien(sv) trong code cô giáo
         /// </summary>
+        public bool AddSinhVien(SinhVien sv)
+        {
+            if (sv == null) return false;
+
+            // Đồng bộ tên lớp hoặc mã lớp
+            var lop = _lopDAL.LayTheoMa(sv.MaLop) ?? _lopDAL.LayTheoTen(sv.TenLop);
+            if (lop != null)
+            {
+                sv.MaLop = lop.MaLop;
+                sv.TenLop = lop.TenLop;
+            }
+
+            return _sinhVienDAL.Them(sv);
+        }
+
+        public bool UpdateSinhVien(SinhVien sv)
+        {
+            if (sv == null) return false;
+            var lop = _lopDAL.LayTheoMa(sv.MaLop) ?? _lopDAL.LayTheoTen(sv.TenLop);
+            if (lop != null)
+            {
+                sv.MaLop = lop.MaLop;
+                sv.TenLop = lop.TenLop;
+            }
+            return _sinhVienDAL.Sua(sv);
+        }
+
+        public bool DeleteSinhVien(string maSV)
+        {
+            return _sinhVienDAL.Xoa(maSV);
+        }
+
         public bool ThemSinhVien(SinhVien sv, out string thongBaoLoi)
         {
             if (sv == null)
@@ -45,24 +79,23 @@ namespace QuanLySinhVien.BUL
                 return false;
             }
 
-            // 1. Kiểm tra nghiệp vụ: Mã sinh viên đã tồn tại
             if (_sinhVienDAL.LayTheoMa(sv.MaSV) != null)
             {
                 thongBaoLoi = $"Mã sinh viên '{sv.MaSV}' đã tồn tại trong hệ thống! Vui lòng chọn mã khác.";
                 return false;
             }
 
-            // 2. Tự động đồng bộ mã lớp nếu có
-            var lop = _lopDAL.LayTheoTen(sv.TenLop);
+            var lop = _lopDAL.LayTheoMa(sv.MaLop) ?? _lopDAL.LayTheoTen(sv.TenLop);
             if (lop != null)
             {
                 sv.MaLop = lop.MaLop;
+                sv.TenLop = lop.TenLop;
             }
 
-            // 3. Kiểm tra tính hợp lệ của thuộc tính bằng Data Annotation
-            if (!sv.KiemTraHopLe(out List<ValidationResult> ketQua))
+            var errors = sv.IsInValid();
+            if (errors.Count > 0)
             {
-                thongBaoLoi = string.Join("\n", ketQua.Select(k => "• " + k.ErrorMessage));
+                thongBaoLoi = string.Join("\n", errors.Select(k => "• " + k.ErrorMessage));
                 return false;
             }
 
@@ -70,11 +103,6 @@ namespace QuanLySinhVien.BUL
             return _sinhVienDAL.Them(sv);
         }
 
-        /// <summary>
-        /// Nghiệp vụ Sửa thông tin sinh viên:
-        /// - Kiểm tra sinh viên có tồn tại trong hệ thống
-        /// - Kiểm tra tính hợp lệ của thuộc tính bằng Data Annotation
-        /// </summary>
         public bool SuaSinhVien(SinhVien svMoi, out string thongBaoLoi)
         {
             if (svMoi == null)
@@ -83,24 +111,23 @@ namespace QuanLySinhVien.BUL
                 return false;
             }
 
-            // 1. Kiểm tra nghiệp vụ: Sinh viên phải tồn tại
             if (_sinhVienDAL.LayTheoMa(svMoi.MaSV) == null)
             {
                 thongBaoLoi = $"Không tìm thấy sinh viên có mã '{svMoi.MaSV}' để cập nhật!";
                 return false;
             }
 
-            // 2. Đồng bộ mã lớp
-            var lop = _lopDAL.LayTheoTen(svMoi.TenLop);
+            var lop = _lopDAL.LayTheoMa(svMoi.MaLop) ?? _lopDAL.LayTheoTen(svMoi.TenLop);
             if (lop != null)
             {
                 svMoi.MaLop = lop.MaLop;
+                svMoi.TenLop = lop.TenLop;
             }
 
-            // 3. Kiểm tra tính hợp lệ bằng Data Annotation
-            if (!svMoi.KiemTraHopLe(out List<ValidationResult> ketQua))
+            var errors = svMoi.IsInValid();
+            if (errors.Count > 0)
             {
-                thongBaoLoi = string.Join("\n", ketQua.Select(k => "• " + k.ErrorMessage));
+                thongBaoLoi = string.Join("\n", errors.Select(k => "• " + k.ErrorMessage));
                 return false;
             }
 
@@ -108,10 +135,6 @@ namespace QuanLySinhVien.BUL
             return _sinhVienDAL.Sua(svMoi);
         }
 
-        /// <summary>
-        /// Nghiệp vụ Xóa sinh viên:
-        /// - Kiểm tra sinh viên có tồn tại trong hệ thống trước khi xóa
-        /// </summary>
         public bool XoaSinhVien(string maSV, out string thongBaoLoi)
         {
             if (string.IsNullOrWhiteSpace(maSV))
@@ -130,10 +153,7 @@ namespace QuanLySinhVien.BUL
             return _sinhVienDAL.Xoa(maSV);
         }
 
-        /// <summary>
-        /// Nghiệp vụ Tìm kiếm và Lọc sinh viên theo từ khóa, lớp, điểm sàn
-        /// </summary>
-        public List<SinhVien> TimKiemVaLoc(string tuKhoa, string? tenLop, double diemTu)
+        public List<SinhVien> TimKiemVaLoc(string tuKhoa, string? maHoacTenLop, double diemTu)
         {
             var query = _sinhVienDAL.LayTatCa().AsEnumerable();
 
@@ -144,13 +164,15 @@ namespace QuanLySinhVien.BUL
                     s.MaSV.ToLowerInvariant().Contains(tuKhoa) ||
                     s.HoTen.ToLowerInvariant().Contains(tuKhoa) ||
                     s.Email.ToLowerInvariant().Contains(tuKhoa) ||
-                    s.DienThoai.ToLowerInvariant().Contains(tuKhoa)
+                    s.SoDienThoai.ToLowerInvariant().Contains(tuKhoa)
                 );
             }
 
-            if (!string.IsNullOrWhiteSpace(tenLop) && tenLop != "Tất cả lớp")
+            if (!string.IsNullOrWhiteSpace(maHoacTenLop) && maHoacTenLop != "Tất cả lớp")
             {
-                query = query.Where(s => s.TenLop.Equals(tenLop, StringComparison.OrdinalIgnoreCase));
+                query = query.Where(s =>
+                    s.MaLop.Equals(maHoacTenLop, StringComparison.OrdinalIgnoreCase) ||
+                    s.TenLop.Equals(maHoacTenLop, StringComparison.OrdinalIgnoreCase));
             }
 
             if (diemTu > 0)

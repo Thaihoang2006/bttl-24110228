@@ -15,6 +15,11 @@ namespace QuanLySinhVien.Views
 
         private void InitializeComponent()
         {
+            components = new System.ComponentModel.Container();
+            errPMaSV = new ErrorProvider(components);
+            erpHoten = new ErrorProvider(components);
+            erpEmail = new ErrorProvider(components);
+            erpDienThoai = new ErrorProvider(components);
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle1 = new System.Windows.Forms.DataGridViewCellStyle();
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle2 = new System.Windows.Forms.DataGridViewCellStyle();
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle3 = new System.Windows.Forms.DataGridViewCellStyle();
@@ -79,6 +84,10 @@ namespace QuanLySinhVien.Views
             lblFooterLeft = new Label();
             pnlHeader.SuspendLayout();
             pnlStudentInfo.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)errPMaSV).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)erpHoten).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)erpEmail).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)erpDienThoai).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numDiem).BeginInit();
             pnlGioiTinh.SuspendLayout();
             pnlFilter.SuspendLayout();
@@ -488,6 +497,7 @@ namespace QuanLySinhVien.Views
             cboLocLop.Name = "cboLocLop";
             cboLocLop.Size = new Size(200, 28);
             cboLocLop.TabIndex = 14;
+            cboLocLop.SelectedIndexChanged += cboLocLop_SelectedIndexChanged;
             // 
             // lblLocLop
             // 
@@ -804,12 +814,36 @@ namespace QuanLySinhVien.Views
             pnlList.ResumeLayout(false);
             pnlList.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)dgvSinhVien).EndInit();
+            // 
+            // errPMaSV
+            // 
+            errPMaSV.ContainerControl = this;
+            // 
+            // erpHoten
+            // 
+            erpHoten.ContainerControl = this;
+            // 
+            // erpEmail
+            // 
+            erpEmail.ContainerControl = this;
+            // 
+            // erpDienThoai
+            // 
+            erpDienThoai.ContainerControl = this;
+            ((System.ComponentModel.ISupportInitialize)errPMaSV).EndInit();
+            ((System.ComponentModel.ISupportInitialize)erpHoten).EndInit();
+            ((System.ComponentModel.ISupportInitialize)erpEmail).EndInit();
+            ((System.ComponentModel.ISupportInitialize)erpDienThoai).EndInit();
             pnlFooter.ResumeLayout(false);
             pnlFooter.PerformLayout();
             ResumeLayout(false);
             PerformLayout();
         }
 
+        private ErrorProvider errPMaSV;
+        private ErrorProvider erpHoten;
+        private ErrorProvider erpEmail;
+        private ErrorProvider erpDienThoai;
         private Panel pnlHeader;
         private Label lblAppTitle;
         private Label lblAppIcon;

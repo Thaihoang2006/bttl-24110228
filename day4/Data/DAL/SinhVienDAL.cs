@@ -54,6 +54,19 @@ namespace QuanLySinhVien.Data.DAL
             return _danhSachSinhVien.FirstOrDefault(s => s.MaSV.Equals(maSV.Trim(), StringComparison.OrdinalIgnoreCase));
         }
 
+        // Lấy về danh sách sinh viên theo mã lớp hoặc tên lớp (tìm kiếm phía nguồn dữ liệu)
+        public List<SinhVien> LayTheoLop(string maHoacTenLop)
+        {
+            if (string.IsNullOrWhiteSpace(maHoacTenLop) || maHoacTenLop == "Tất cả lớp")
+            {
+                return LayTatCa();
+            }
+            return _danhSachSinhVien
+                .Where(s => s.MaLop.Equals(maHoacTenLop.Trim(), StringComparison.OrdinalIgnoreCase) ||
+                            s.TenLop.Equals(maHoacTenLop.Trim(), StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
         // Thêm sinh viên vào nguồn dữ liệu
         public bool Them(SinhVien sv)
         {

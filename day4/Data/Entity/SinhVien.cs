@@ -27,7 +27,14 @@ namespace QuanLySinhVien.Data.Entity
 
         [Required(ErrorMessage = "Số điện thoại không được để trống!")]
         [RegularExpression(@"^0\d{9}$", ErrorMessage = "Số điện thoại phải gồm 10 chữ số và bắt đầu bằng số 0!")]
-        public string DienThoai { get; set; } = string.Empty;
+        public string SoDienThoai { get; set; } = string.Empty;
+
+        // Alias tương thích
+        public string DienThoai
+        {
+            get => SoDienThoai;
+            set => SoDienThoai = value;
+        }
 
         [Required(ErrorMessage = "Điểm không được để trống!")]
         [Range(0.0, 10.0, ErrorMessage = "Điểm phải nằm trong khoảng từ 0.0 đến 10.0!")]
@@ -45,7 +52,7 @@ namespace QuanLySinhVien.Data.Entity
         }
 
         public SinhVien(string maSV, string hoTen, DateTime ngaySinh, string gioiTinh,
-                        string email, string dienThoai, double diem, string maLop,
+                        string email, string soDienThoai, double diem, string maLop,
                         string tenLop, string trangThai)
         {
             MaSV = maSV;
@@ -53,28 +60,35 @@ namespace QuanLySinhVien.Data.Entity
             NgaySinh = ngaySinh;
             GioiTinh = gioiTinh;
             Email = email;
-            DienThoai = dienThoai;
+            SoDienThoai = soDienThoai;
             Diem = diem;
             MaLop = maLop;
             TenLop = tenLop;
             TrangThai = trangThai;
         }
 
-        // Phương thức kiểm tra xem các thuộc tính của đối tượng có hợp lệ hay không dùng Data Annotation
-        public bool KiemTraHopLe(out List<ValidationResult> ketQua)
-        {
-            var context = new ValidationContext(this);
-            ketQua = new List<ValidationResult>();
-            return Validator.TryValidateObject(this, context, ketQua, validateAllProperties: true);
-        }
-
-        // Phương thức tiện ích trả về chuỗi thông báo lỗi tổng hợp
-        public bool KiemTraHopLe(out string thongBaoLoi)
+        /// <summary>
+        /// Phương thức kiểm tra tính hợp lệ theo yêu cầu của cô giáo:
+        /// Trả về danh sách ValidationResult lỗi nếu có, rỗng nếu hợp lệ.
+        /// </summary>
+        public List<ValidationResult> IsInValid()
         {
             var context = new ValidationContext(this);
             var results = new List<ValidationResult>();
-            bool isValid = Validator.TryValidateObject(this, context, results, validateAllProperties: true);
-            if (!isValid)
+            Validator.TryValidateObject(this, context, results, validateAllProperties: true);
+            return results;
+        }
+
+        public bool KiemTraHopLe(out List<ValidationResult> ketQua)
+        {
+            ketQua = IsInValid();
+            return ketQua.Count == 0;
+        }
+
+        public bool KiemTraHopLe(out string thongBaoLoi)
+        {
+            var results = IsInValid();
+            if (results.Count > 0)
             {
                 thongBaoLoi = string.Join("\n", results.Select(r => "• " + r.ErrorMessage));
                 return false;
