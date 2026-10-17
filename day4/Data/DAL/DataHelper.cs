@@ -76,7 +76,7 @@ namespace QuanLySinhVien.Data.DAL
             string err = MoKetNoi();
             if (!string.IsNullOrEmpty(err))
             {
-                throw new InvalidOperationException($"Lỗi kết nối CSDL: {err}");
+                throw new InvalidOperationException($"Lỗii kết nối CSDL: {err}");
             }
 
             try
