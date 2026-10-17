@@ -1,4 +1,4 @@
-namespace QuanLySinhVien.Views
+﻿namespace QuanLySinhVien.Views
 {
     partial class frmCaculator
     {
