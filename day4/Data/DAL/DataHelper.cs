@@ -1,201 +1,115 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
+using System.Configuration;
 using System.Data;
+using System.Text;
 using Microsoft.Data.SqlClient;
 
 namespace QuanLySinhVien.Data.DAL
 {
-    
     public class DataHelper
     {
-        
-        public SqlConnection con;
+        private SqlConnection con;
+        string connectionString;
 
-        
-        public DataHelper(string strcon)
-        {
-            con = new SqlConnection(strcon);
-        }
-
-        
-        public string MoKetNoi()
+        public DataHelper()
         {
             try
             {
-                if (con.State == ConnectionState.Closed)
-                {
-                    con.Open();
-                }
-                return "";
-            }
-            catch (Exception ex)
-            {
-                return ex.Message;
-            }
-        }
+                string? cfg = ConfigurationManager.ConnectionStrings["studentDataBase"]?.ConnectionString
+                           ?? ConfigurationManager.ConnectionStrings["QLSV"]?.ConnectionString;
 
-        
-        public void DongKetNoi()
-        {
-            try
-            {
-                if (con.State == ConnectionState.Open)
-                {
-                    con.Close();
-                }
+                this.connectionString = !string.IsNullOrEmpty(cfg)
+                    ? cfg
+                    : @"Server=LAPTOP-6SN65NCS\HUECTMDB; Database=QLSV;Integrated Security=True; TrustServerCertificate=true";
             }
             catch
             {
+                this.connectionString = @"Server=LAPTOP-6SN65NCS\HUECTMDB; Database=QLSV;Integrated Security=True; TrustServerCertificate=true";
+            }
+
+            con = new SqlConnection(connectionString);
+        }
+
+        public DataHelper(string connectionString)
+        {
+            this.connectionString = connectionString;
+            con = new SqlConnection(connectionString);
+        }
+
+        public void OpenConnection()
+        {
+            if (con.State == System.Data.ConnectionState.Closed)
+            {
+                con.Open();
             }
         }
 
-        
-        public void ExcuteNonQuery(string sqlString)
-        {
-            string err = MoKetNoi();
-            if (!string.IsNullOrEmpty(err))
-            {
-                throw new InvalidOperationException($"Lỗi kết nối CSDL: {err}");
-            }
+        public void MoKetNoi() => OpenConnection();
 
+        public void CloseConnection()
+        {
+            if (con.State == System.Data.ConnectionState.Open)
+            {
+                con.Close();
+            }
+        }
+
+        public void DongKetNoi() => CloseConnection();
+
+        public void ExecuteNonQuery(string sqlExcuteQuery)
+        {
             try
             {
-                using (SqlCommand cm = new SqlCommand(sqlString, con))
+                OpenConnection();
+                using (SqlCommand comand = new SqlCommand(sqlExcuteQuery, con))
                 {
-                    cm.ExecuteNonQuery();
+                    comand.ExecuteNonQuery();
+                }
+                CloseConnection();
+            }
+            catch (Exception exx)
+            {
+                CloseConnection();
+                throw new Exception(exx.Message, exx);
+            }
+        }
+
+        public void ExcuteNonQuery(string sqlExcuteQuery) => ExecuteNonQuery(sqlExcuteQuery);
+
+        public SqlDataReader ExcuteReader(string sqlSelect)
+        {
+            try
+            {
+                OpenConnection();
+                SqlCommand comand = new SqlCommand(sqlSelect, con);
+                SqlDataReader red = comand.ExecuteReader();
+                return red;
+            }
+            catch (Exception exx)
+            {
+                CloseConnection();
+                throw new Exception(exx.Message, exx);
+            }
+        }
+
+        public SqlDataReader ExecuteReader(string sqlSelect) => ExcuteReader(sqlSelect);
+
+        public DataTable GetDataTable(string sqlSelect)
+        {
+            try
+            {
+                using (SqlDataAdapter da = new SqlDataAdapter(sqlSelect, con))
+                {
+                    DataTable dt = new DataTable();
+                    da.Fill(dt);
+                    return dt;
                 }
             }
-            finally
+            catch (Exception exx)
             {
-                DongKetNoi();
+                throw new Exception(exx.Message, exx);
             }
         }
-
-        
-        public int ExecuteNonQuery(string sqlString)
-        {
-            string err = MoKetNoi();
-            if (!string.IsNullOrEmpty(err))
-            {
-                throw new InvalidOperationException($"Lỗii kết nối CSDL: {err}");
-            }
-
-            try
-            {
-                using (SqlCommand cm = new SqlCommand(sqlString, con))
-                {
-                    return cm.ExecuteNonQuery();
-                }
-            }
-            finally
-            {
-                DongKetNoi();
-            }
-        }
-
-        
-        public int ExecuteNonQuery(string sqlString, SqlParameter[] parameters)
-        {
-            string err = MoKetNoi();
-            if (!string.IsNullOrEmpty(err))
-            {
-                throw new InvalidOperationException($"Lỗi kết nối CSDL: {err}");
-            }
-
-            try
-            {
-                using (SqlCommand cm = new SqlCommand(sqlString, con))
-                {
-                    if (parameters != null && parameters.Length > 0)
-                    {
-                        cm.Parameters.AddRange(parameters);
-                    }
-                    return cm.ExecuteNonQuery();
-                }
-            }
-            finally
-            {
-                DongKetNoi();
-            }
-        }
-
-        
-        public SqlDataReader? ExcuteReader(string sqlString)
-        {
-            string err = MoKetNoi();
-            if (!string.IsNullOrEmpty(err))
-            {
-                return null;
-            }
-
-            try
-            {
-                SqlCommand cm = new SqlCommand(sqlString, con);
-                return cm.ExecuteReader(CommandBehavior.CloseConnection);
-            }
-            catch (Exception)
-            {
-                DongKetNoi();
-                return null;
-            }
-        }
-
-        
-        public SqlDataReader? ExecuteReader(string sqlString)
-        {
-            return ExcuteReader(sqlString);
-        }
-
-        
-        public SqlDataReader? ExcuteReader(string sqlString, SqlParameter[] parameters)
-        {
-            string err = MoKetNoi();
-            if (!string.IsNullOrEmpty(err))
-            {
-                return null;
-            }
-
-            try
-            {
-                SqlCommand cm = new SqlCommand(sqlString, con);
-                if (parameters != null && parameters.Length > 0)
-                {
-                    cm.Parameters.AddRange(parameters);
-                }
-                return cm.ExecuteReader(CommandBehavior.CloseConnection);
-            }
-            catch (Exception)
-            {
-                DongKetNoi();
-                return null;
-            }
-        }
-
-        
-        public object? ExcuteScalar(string sqlString)
-        {
-            string err = MoKetNoi();
-            if (!string.IsNullOrEmpty(err))
-            {
-                return null;
-            }
-
-            try
-            {
-                using (SqlCommand cm = new SqlCommand(sqlString, con))
-                {
-                    return cm.ExecuteScalar();
-                }
-            }
-            catch (Exception)
-            {
-                return null;
-            }
-            finally
-            {
-                DongKetNoi();
-            }
-        }
-
-        public object? ExecuteScalar(string sqlString) => ExcuteScalar(sqlString);
     }
 }
